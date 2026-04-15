@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "EstadoEquipo" ADD VALUE 'PENDIENTE_DEVOLUCION';

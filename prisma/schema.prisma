@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TipoEquipo {
+  LAPTOP
+  DESKTOP
+  AIO
+  MONITOR
+  IMPRESORA
+}
+
+enum EstadoEquipo {
+  COMPLETO
+  CON_FALLAS
+  INCOMPLETO
+  PRESTADO
+  PENDIENTE_REPOSICION
+  PENDIENTE_DEVOLUCION
+  BAJA
+}
+
+enum CategoriaComponente {
+  SSD
+  RAM
+  PANTALLA
+  BATERIA
+  BOARD
+  TECLADO
+  OTRO
+}
+
+enum EstadoComponente {
+  BUENO
+  DANADO
+  EN_USO
+  EN_REVISION
+  PENDIENTE_DEVOLUCION
+  PENDIENTE_REPOSICION
+}
+
+enum TipoMovimiento {
+  INSTALACION
+  RETIRO
+  DEVOLUCION
+  REEMPLAZO
+  INGRESO
+}
+
+enum UsoTipo {
+  TEMPORAL
+  DEFINITIVO
+  NA
+}
+
+enum StatusMovimiento {
+  ENTREGADO
+  INSTALADO
+  EN_ESPERA
+  PENDIENTE_DEVOLUCION
+  CERRADO
+}
+
+enum EstadoRepuesto {
+  EN_CAMINO
+  EN_TRANSITO
+  RECIBIDO
+  INSTALADO
+}
+
+enum RolUsuario {
+  ADMIN
+  TECNICO
+}
+
+model Usuario {
+  id            String     @id @default(uuid())
+  nombre        String
+  email         String     @unique
+  password_hash String
+  rol           RolUsuario @default(TECNICO)
+  activo        Boolean    @default(true)
+  creado_en     DateTime   @default(now())
+
+  movimientos MovimientoComponente[]
+
+  @@map("usuarios")
+}
+
+model Equipo {
+  id             String       @id @default(uuid())
+  serial         String       @unique
+  modelo         String
+  product_number String?
+  tipo_equipo    TipoEquipo
+  cliente        String?
+  estado         EstadoEquipo @default(COMPLETO)
+  observaciones  String?
+  creado_en      DateTime     @default(now())
+  actualizado_en DateTime     @updatedAt
+
+  configuraciones      ConfiguracionOriginal[]
+  componentes_actuales Componente[]             @relation("CompUbicacion")
+  movimientos_origen   MovimientoComponente[]   @relation("MovOrigen")
+  movimientos_destino  MovimientoComponente[]   @relation("MovDestino")
+  repuestos_hp         RepuestoHp[]
+
+  @@map("equipos")
+}
+
+model ConfiguracionOriginal {
+  id             String   @id @default(uuid())
+  equipo_id      String
+  fecha_consulta DateTime @default(now())
+  raw_data       Json?
+
+  equipo   Equipo                        @relation(fields: [equipo_id], references: [id])
+  detalles ConfiguracionOriginalDetalle[]
+
+  @@map("configuracion_original")
+}
+
+model ConfiguracionOriginalDetalle {
+  id               String               @id @default(uuid())
+  configuracion_id String
+  part_number      String
+  descripcion      String
+  categoria        CategoriaComponente?
+
+  configuracion ConfiguracionOriginal @relation(fields: [configuracion_id], references: [id])
+
+  @@map("configuracion_original_detalle")
+}
+
+model Componente {
+  id               String              @id @default(uuid())
+  part_number      String
+  descripcion      String
+  categoria        CategoriaComponente
+  ct               String?
+  estado           EstadoComponente    @default(BUENO)
+  equipo_actual_id String?
+  numero_os        String?
+  observaciones    String?
+  creado_en        DateTime            @default(now())
+  actualizado_en   DateTime            @updatedAt
+
+  equipo_actual Equipo?              @relation("CompUbicacion", fields: [equipo_actual_id], references: [id])
+  movimientos   MovimientoComponente[]
+  repuestos     RepuestoHp[]
+  historial_ct  HistorialCT[]
+
+  @@map("componentes")
+}
+
+model HistorialCT {
+  id            String   @id @default(uuid())
+  componente_id String
+  ct            String
+  motivo        String?
+  movimiento_id String?
+  creado_en     DateTime @default(now())
+
+  componente Componente @relation(fields: [componente_id], references: [id])
+
+  @@map("historial_ct")
+}
+
+model MovimientoComponente {
+  id                String           @id @default(uuid())
+  componente_id     String?
+  equipo_completo   Boolean          @default(false)
+  numero_caso       String
+  tipo_movimiento   TipoMovimiento
+  origen_id         String?
+  destino_id        String?
+  uso_tipo          UsoTipo          @default(NA)
+  tecnico           String?
+  ct_malo           String?
+  ct_bueno          String?
+  fecha_entrega     DateTime?
+  fecha_instalacion DateTime?
+  fecha_devolucion  DateTime?
+  status            StatusMovimiento @default(ENTREGADO)
+  usuario_id        String
+  observaciones     String?
+  creado_en         DateTime         @default(now())
+
+  componente Componente? @relation(fields: [componente_id], references: [id])
+  origen     Equipo?     @relation("MovOrigen",  fields: [origen_id],  references: [id])
+  destino    Equipo?     @relation("MovDestino", fields: [destino_id], references: [id])
+  usuario    Usuario     @relation(fields: [usuario_id], references: [id])
+
+  @@map("movimientos_componentes")
+}
+
+model RepuestoHp {
+  id                String         @id @default(uuid())
+  numero_caso       String
+  equipo_destino_id String?
+  componente_id     String?
+  part_number       String
+  descripcion       String?
+  estado            EstadoRepuesto @default(EN_CAMINO)
+  fecha_recepcion   DateTime?
+  fecha_instalacion DateTime?
+  observaciones     String?
+  creado_en         DateTime       @default(now())
+
+  equipo_destino Equipo?     @relation(fields: [equipo_destino_id], references: [id])
+  componente     Componente? @relation(fields: [componente_id],     references: [id])
+
+  @@map("repuestos_hp")
+}
