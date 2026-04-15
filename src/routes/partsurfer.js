@@ -128,7 +128,8 @@ router.get('/parte', auth, async (req, res, next) => {
     if (!part_number || part_number.length < 4) return res.status(400).json({ error: 'Número de parte inválido' })
     console.log('Buscando parte:', part_number)
 
-    const prisma = require('../db')
+    const { PrismaClient } = require('@prisma/client')
+    const prisma = new PrismaClient()
     const enBD = await prisma.configuracionOriginalDetalle.findFirst({
       where: { part_number: { contains: part_number, mode: 'insensitive' } }
     })
@@ -243,6 +244,34 @@ router.get('/seleccionar', auth, async (req, res, next) => {
       })
     } finally { await browser.close() }
   } catch (err) { next(new Error('Error: ' + err.message)) }
+})
+
+
+// POST /api/partsurfer/consultar — alias para compatibilidad frontend
+router.post('/consultar', auth, async (req, res, next) => {
+  const { serial } = req.body
+  if (!serial) return res.status(400).json({ error: 'Serial requerido' })
+  req.params = { serial }
+  // Reusar la lógica del GET /:serial
+  try {
+    const data = await scrapPartSurfer(serial)
+    res.json(data)
+  } catch (err) { next(err) }
+})
+
+// POST /api/partsurfer/seleccionar — alias para compatibilidad frontend
+router.post('/seleccionar', auth, async (req, res, next) => {
+  const { serial, productNumber } = req.body
+  if (!serial || !productNumber) return res.status(400).json({ error: 'Serial y productNumber requeridos' })
+  req.query = { serial, product_number: productNumber }
+  try {
+    // Redirect to GET /seleccionar logic
+    const mockReq = { query: { serial, product_number: productNumber }, headers: req.headers }
+    const mockRes = { json: (d) => res.json(d), status: (c) => ({ json: (d) => res.status(c).json(d) }) }
+    // Call seleccionar handler inline - simpler to just duplicate the scrape
+    const data = await scrapPartSurfer(productNumber)
+    res.json(data)
+  } catch (err) { next(err) }
 })
 
 router.get('/:serial', auth, async (req, res, next) => {
