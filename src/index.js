@@ -6,6 +6,7 @@ try { rateLimit = require('express-rate-limit'); }
 catch { console.warn('⚠ express-rate-limit no instalado — ejecuta npm install'); rateLimit = () => (req,res,next) => next(); }
 
 const app = express();
+app.set('trust proxy', 1); // Railway / proxies
 
 // ── CORS — only allow known origins ──────────────────────────────
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(o => o.trim());
