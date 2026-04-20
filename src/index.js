@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express    = require('express');
 const cors       = require('cors');
 let rateLimit;
@@ -10,8 +11,10 @@ app.set('trust proxy', 1); // Railway / proxies
 
 // ── CORS — only allow known origins ──────────────────────────────
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(o => o.trim());
+
 app.use(cors({
   origin: (origin, cb) => {
+
     // Allow non-browser requests (Postman, server-to-server) and known origins
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error('Origen no permitido por CORS'));
